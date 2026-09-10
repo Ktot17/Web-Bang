@@ -1,0 +1,8 @@
+﻿[*.cs]
+
+dotnet_diagnostic.CA1502.severity = warning
+
+dotnet_code_quality.CA1502.max_complexity = 10
+
+dotnet_diagnostic.T0003.severity = none
+dotnet_diagnostic.T0043.severity = none

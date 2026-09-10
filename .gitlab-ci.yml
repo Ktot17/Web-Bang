@@ -1,0 +1,189 @@
+stages:
+  - build
+  - test
+  - deploy
+  - .post
+
+cache: &global_cache
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - ./*/bin/
+    - ./*/obj/
+  policy: pull-push
+
+.standard:
+  rules: 
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+variables:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: 5432
+  TEST_CONNECTION_STRING: "Host=localhost;Port=5432;Database=test;Username=postgres;Password=postgres"
+  
+  DEPLOY_HOST: "192.168.100.1"
+  DEPLOY_USER: "deploy"
+  DEPLOY_PATH: "~/Bang"
+
+build:
+  stage: build
+  extends: .standard
+  script: 
+    - dotnet build --configuration Release -warnaserror
+    - dotnet format --verify-no-changes
+  cache:
+    <<: *global_cache
+    policy: push
+  allow_failure: true
+
+unit:
+  stage: test
+  extends:
+    - .standard
+  script: 
+    - dotnet test --configuration Release --no-build ./BLUnitTests/
+    - dotnet test --configuration Release --no-build ./DBUnitTests/
+  needs:
+    - job: build
+      artifacts: true
+      optional: true
+  cache:
+    <<: *global_cache
+    policy: pull
+  artifacts:
+    paths:
+      - ./allure-results
+    when: always
+    expire_in: 1 hour
+
+integration:
+  stage: test
+  extends:
+    - .standard
+  script:
+    - dotnet test --configuration Release --no-build ./BLIntegrationTests/
+    - dotnet test --configuration Release --no-build ./DBIntegrationTests/
+  needs:
+    - job: build
+      artifacts: true
+      optional: true
+    - job: unit
+      artifacts: true
+      optional: false
+  cache:
+    <<: *global_cache
+    policy: pull
+  artifacts: 
+    paths:
+      - ./allure-results
+    when: always
+    expire_in: 1 hour
+
+e2e:
+  stage: test
+  extends:
+    - .standard
+  script:
+    - dotnet test --configuration Release --no-build ./E2ETests/
+  needs:
+    - job: build
+      artifacts: true
+      optional: true
+    - job: unit
+      artifacts: true
+      optional: false
+    - job: integration
+      artifacts: true
+      optional: false
+  cache:
+    <<: *global_cache
+    policy: pull
+  artifacts:
+    paths:
+      - ./allure-results
+    when: always
+    expire_in: 1 hour
+
+allure:
+  stage: test
+  extends:
+    - .standard
+  script: 
+    - allure generate --clean -o allure-report
+  needs:
+    - job: build
+      artifacts: true
+      optional: true
+    - job: unit
+      artifacts: true
+      optional: true
+    - job: integration
+      artifacts: true
+      optional: true
+    - job: e2e
+      artifacts: true
+      optional: true
+  cache: []
+  artifacts: 
+    paths:
+      - ./allure-report
+    when: always
+    expire_in: 1 hour
+  when: always
+
+deploy:
+  stage: deploy
+  rules: 
+    - if: $CI_COMMIT_BRANCH == 'main' || $CI_COMMIT_BRANCH == 'master' || $CI_COMMIT_BRANCH == 'develop'
+      when: manual
+    - when: never
+  environment: 
+    name: Bang
+    url: http://localhost:5188/api/v1/swagger/index.html
+  before_script:
+    - mkdir -p ~/.ssh
+    - cp "$SSH_VM1_KEY" ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+  script: 
+    - mkdir -p publish
+    - dotnet publish ./Server/Server.csproj --configuration Release --no-build --output ./publish/
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH/$CI_COMMIT_BRANCH/publish"
+#    - scp Dockerfile $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/$CI_COMMIT_BRANCH/
+#    - scp docker-compose.yml $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/$CI_COMMIT_BRANCH/
+    - scp -r ./publish/* "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/$CI_COMMIT_BRANCH/publish"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "chmod -R 755 $DEPLOY_PATH/$CI_COMMIT_BRANCH/publish"
+    - |
+      ssh $DEPLOY_USER@$DEPLOY_HOST bash << EOF
+        set -e
+        export XDG_RUNTIME_DIR="/run/user/1001"
+        systemctl --user stop bang-app@$CI_COMMIT_BRANCH.service 2>/dev/null || true
+        systemctl --user start bang-app@$CI_COMMIT_BRANCH.service 2>/dev/null || true
+      EOF
+#    - ssh $DEPLOY_USER@$DEPLOY_HOST "chmod 644 $DEPLOY_PATH/$CI_COMMIT_BRANCH/Dockerfile"
+#    - ssh $DEPLOY_USER@$DEPLOY_HOST "chmod 644 $DEPLOY_PATH/$CI_COMMIT_BRANCH/docker-compose.yml"
+#    - |
+#      ssh $DEPLOY_USER@$DEPLOY_HOST bash << EOF
+#        set -e
+#        cd $DEPLOY_PATH/$CI_COMMIT_BRANCH
+#        podman-compose down 2>/dev/null || true
+#        podman rmi bang-app:latest 2>/dev/null || true
+#        podman-compose up -d --build
+#      EOF
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+  cache:
+    <<: *global_cache
+    policy: pull
+    
+notify:
+  stage: .post
+  extends: .standard
+  script:
+    - echo "$CI_COMMIT_SHORT_SHA" > last_commit_sha
+    - chmod +x ./notify.sh
+    - ./notify.sh
+  cache: []
+  when: always
+  

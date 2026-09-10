@@ -1,0 +1,178 @@
+﻿openapi: 3.1.1
+info:
+  title: Bang! Game Server API
+  description: REST API для многопользовательской игры Бэнг!
+  version: 1.0.0
+  
+paths:
+  /api/v1/games:
+    post:
+      summary: Создать лобби
+      responses: 
+        '201':
+          description: Игра успешно создана
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Пользователь не найден
+        '409':
+          description: Пользователь уже в лобби
+    get: 
+      summary: Получить список активных лобби
+      responses: 
+        '200':
+          description: Успешный запрос
+          content: 
+            application/json:
+              schema: 
+                type: array
+                items: 
+                  type: object
+                  properties: 
+                    game_id:
+                      type: string
+                    players_count:
+                      type: integer
+        '401':
+          description: Пользователь не авторизован
+
+  /api/v1/games/{game_id}/join:
+    patch:
+      summary: Присоединиться к лобби
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema: 
+            type: string
+      responses: 
+        '200':
+          description: Успешное подключение
+        '401':
+          description: Пользователь не авторизован
+        '404':
+          description: Лобби или пользователь не найден
+        '409':
+          description: Невозможно подключиться к лобби
+  
+  /api/v1/games/{game_id}/start:
+    post:
+      summary: Начать игру
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema: 
+            type: string
+      responses: 
+        '200':
+          description: Игра начата
+        '403':
+          description: Недостаточно прав
+        '409':
+          description: Нельзя начать игру
+  
+  /api/v1/games/{game_id}/play_card:
+    post:
+      summary: Разыграть карту
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                card_id:
+                  type: string
+      responses: 
+        '200':
+          description: Карта разыграна
+        '403':
+          description: Сейчас ходит другой игрок
+        '404':
+          description: Карта не найдена
+        '409':
+          description: Нельзя разыграть карту
+          
+  /api/v1/games/{game_id}/discard_card:
+    post:
+      summary: Сбросить карту
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                card_id:
+                  type: string
+      responses: 
+        '200':
+          description: Карта сброшена
+        '403':
+          description: Сейчас ходит другой игрок
+        '404':
+          description: Карта не найдена
+  
+  /api/v1/games/{game_id}/end_turn:
+    post:
+      summary: Закончить ход
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ход закончен
+        '403':
+          description: Сейчас ходит другой игрок
+        '409':
+          description: Нельзя закончить ход
+  
+  /api/v1/games/{game_id}/player_reaction:
+    post:
+      summary: Выбрать цель карты
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target_player_id:
+                  
+                  type: string
+                target_card_id:
+                  type: string
+                yes_or_no:
+                  type: boolean
+      responses:
+        '200':
+          description: Цель выбрана
+        '403':
+          description: Сейчас ходит другой игрок
+        '404':
+          description: Цель не найдена
+        '409':
+          description: Нельзя выбрать эту цель
+                      
