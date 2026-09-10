@@ -1,0 +1,42 @@
+﻿version: '3.8'
+
+services:
+  postgres:
+    image: docker.io/postgres:15
+    container_name: postgres-bang
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Bang
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - bang-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bang-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=Bang;Username=postgres;Password=postgres
+    networks:
+      - bang-network
+
+networks:
+  bang-network:
+    driver: bridge

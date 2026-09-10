@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AutoFixture.Xunit2" Version="5.0.0-preview0012" />
+        <PackageReference Include="coverlet.collector" Version="6.0.0"/>
+        <PackageReference Include="LightBDD.XUnit2" Version="3.11.1" />
+        <PackageReference Include="MailKit" Version="4.14.1" />
+        <PackageReference Include="Mailtrap" Version="1.1.0" />
+        <PackageReference Include="Mailtrap.NET" Version="1.1.4-alpha" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.21" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0-rc.1.25451.107" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client.Core" Version="10.0.0-rc.1.25451.107" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Metrics" Version="5.0.0-1.25277.114" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.20" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0"/>
+        <PackageReference Include="xunit" Version="2.5.3"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\BLUnitTests\BLUnitTests.csproj" />
+      <ProjectReference Include="..\DBComponent\DBComponent.csproj" />
+      <ProjectReference Include="..\Server\Server.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="../allureConfig.json">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+</Project>
